@@ -1,12 +1,12 @@
-;; ------------------------------------------------------------
-;; CSV LOADER FOR ASME B16.5 Class 150# flanges
-;; Supports:
-;; - semicolons
-;; - comma decimals → dot decimals
-;; - empty fields
-;; - automatic header parsing
-;; - output as association lists
-;; ------------------------------------------------------------
+;; ============================================================
+;;  CSV LOADER (UNIVERSAL)
+;;  - Supports semicolon-separated CSV
+;;  - Converts comma decimals → dot decimals
+;;  - Handles empty fields
+;;  - Auto-parses header row
+;;  - Returns association lists
+;;  - Converts numeric fields to numbers automatically
+;; ============================================================
 
 (defun csv:split (str sep / lst pos)
   (setq lst '())
@@ -18,10 +18,19 @@
 )
 
 (defun csv:normalize (s)
-  ;; remove spaces, replace comma with dot
-  (if s
+  ;; Trim spaces, convert comma-decimals to dot-decimals
+  (if (and s (> (strlen s) 0))
     (vl-string-subst "." "," (vl-string-trim " " s))
     ""
+  )
+)
+
+(defun csv:maybe-number (s)
+  ;; Convert to number if possible, otherwise return string
+  (if (and (> (strlen s) 0)
+           (not (wcmatch s "*[A-Za-z]*")))
+    (atof s)
+    s
   )
 )
 
@@ -29,14 +38,21 @@
   (setq f (open file "r"))
   (setq rows '())
 
-  ;; --- read header ---
+  ;; --- Read header row ---
   (setq header (csv:split (read-line f) ";"))
 
-  ;; --- read each row ---
+  ;; --- Process each row ---
   (while (setq line (read-line f))
-    (setq fields (mapcar 'csv:normalize (csv:split line ";")))
+    (setq fields
+      (mapcar
+        '(lambda (x)
+           (csv:maybe-number (csv:normalize x))
+         )
+        (csv:split line ";")
+      )
+    )
 
-    ;; build association list: (("NPS" . "0.5") ("outside_diameter_flange" . "89") ...)
+    ;; Build association list: (("NPS" . 2.0) ("OD" . 60.3) ...)
     (setq rows
       (cons
         (mapcar
